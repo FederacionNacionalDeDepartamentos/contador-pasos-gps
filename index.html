@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Contador de Pasos</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" href="icon-192.png">
+  <meta name="theme-color" content="#2196f3">
+
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 2em;
+      background: #f4f4f4;
+      text-align: center;
+    }
+    #contador {
+      font-size: 2em;
+      font-weight: bold;
+    }
+    button {
+      margin: 10px;
+      padding: 10px 20px;
+      font-size: 16px;
+    }
+  </style>
+</head>
+<body>
+  <h1>Contador de Pasos (GPS)</h1>
+  <p>Pasos estimados: <span id="contador">0</span></p>
+  <button onclick="iniciarContador()">Iniciar</button>
+  <button onclick="detenerContador()">Detener</button>
+
+  <script>
+    let watchId;
+    let pasos = 0;
+    let ultimaPosicion = null;
+    const longitudPaso = 0.75;
+
+    function calcularDistancia(lat1, lon1, lat2, lon2) {
+      const R = 6371e3;
+      const φ1 = lat1 * Math.PI / 180;
+      const φ2 = lat2 * Math.PI / 180;
+      const Δφ = (lat2 - lat1) * Math.PI / 180;
+      const Δλ = (lon2 - lon1) * Math.PI / 180;
+
+      const a = Math.sin(Δφ / 2) ** 2 +
+                Math.cos(φ1) * Math.cos(φ2) *
+                Math.sin(Δλ / 2) ** 2;
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+      return R * c;
+    }
+
+    function iniciarContador() {
+      if (!navigator.geolocation) {
+        alert("Tu navegador no soporta geolocalización");
+        return;
+      }
+
+      pasos = 0;
+      ultimaPosicion = null;
+
+      watchId = navigator.geolocation.watchPosition(pos => {
+        const { latitude, longitude } = pos.coords;
+
+        if (ultimaPosicion) {
+          const distancia = calcularDistancia(
+            ultimaPosicion.lat,
+            ultimaPosicion.lon,
+            latitude,
+            longitude
+          );
+
+          if (distancia > 0.5) {
+            pasos += Math.floor(distancia / longitudPaso);
+            document.getElementById("contador").textContent = pasos;
+          }
+        }
+
+        ultimaPosicion = { lat: latitude, lon: longitude };
+
+      }, error => {
+        alert("Error de ubicación.");
+      }, {
+        enableHighAccuracy: true,
+        maximumAge: 1000,
+        timeout: 5000
+      });
+    }
+
+    function detenerContador() {
+      if (watchId) {
+        navigator.geolocation.clearWatch(watchId);
+        watchId = null;
+        alert("Contador detenido.");
+      }
+    }
+
+    // Registrar service worker
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('service-worker.js')
+        .then(reg => console.log('✅ Service Worker registrado'))
+        .catch(err => console.error('❌ Error al registrar SW:', err));
+    }
+  </script>
+</body>
+</html>
